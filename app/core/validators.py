@@ -62,22 +62,3 @@ def validate_password(password: str):
         raise ValueError("Password must not contain spaces")
 
     return password
-
-
-def validate_matriculation_number(matriculation_number: str) -> str:
-    """
-    validate_matriculation_number validates the matriculation number.
-    e.g. COD/12/3456
-
-    Args:
-        matriculation_number (str): The matriculation number to validate
-
-    Returns:
-        str: The validated matriculation number
-
-    Raises:
-        ValueError: If the matriculation number is invalid
-    """
-    if not re.match(r"^[A-Z]{3}/\d{2}/\d{4}$", matriculation_number):
-        raise ValueError("Invalid matriculation number")
-    return matriculation_number
