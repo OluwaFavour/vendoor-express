@@ -12,10 +12,11 @@ from pydantic import (
     model_validator,
 )
 
+from app.core.enums import Role
 from app.core.validators import validate_phone, validate_password
 
 
-class CustomerBase(BaseModel):
+class UserBase(BaseModel):
     email: Annotated[EmailStr, Field(..., title="Email address")]
     first_name: str
     last_name: str
@@ -26,6 +27,7 @@ class CustomerBase(BaseModel):
             description="Phone number in international format, e.g. +2348123456789",
         ),
     ]
+    role: Annotated[Role, Field(..., title="Role", description="Role of the user")]
 
     @field_validator("phone")
     def phone_validator(cls, value: str) -> str:
@@ -41,13 +43,13 @@ class CustomerBase(BaseModel):
         return validate_phone(value)
 
 
-class CustomerCreate(CustomerBase):
+class UserCreate(UserBase):
     password: Annotated[
         str,
         Field(
             ...,
             min_length=8,
-            description="Password for the customer account, must be at least 8 characters long, contain at least one digit, one uppercase letter, one lowercase letter, and one special character, and not contain spaces.",
+            description="Password for the user account, must be at least 8 characters long, contain at least one digit, one uppercase letter, one lowercase letter, and one special character, and not contain spaces.",
         ),
     ]
     model_config: ConfigDict = ConfigDict(extra="forbid")
@@ -66,7 +68,7 @@ class CustomerCreate(CustomerBase):
         return validate_password(value)
 
 
-class Customer(CustomerBase):
+class User(UserBase):
     model_config: ConfigDict = ConfigDict(from_attributes=True)
     id: UUID
     is_active: bool
