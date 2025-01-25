@@ -5,65 +5,65 @@ from fastapi import APIRouter, Depends, Form, Request, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.config import get_async_session
-from app.db.models import Customer
-from app.core.dependencies import get_logged_in_active_customer
-from app.schemas.customers import (
+from app.db.models import User
+from app.core.dependencies import get_logged_in_active_user
+from app.schemas.users import (
     LoginDetails,
-    Customer as CustomerSchema,
-    CustomerCreate,
+    User as UserSchema,
+    UserCreate,
     PasswordChangeData,
 )
 
 
 router = APIRouter(
-    prefix="/customers/auth",
-    tags=["customers", "auth"],
+    prefix="/users/auth",
+    tags=["users", "auth"],
 )
 
 
 @router.post("/login", status_code=status.HTTP_200_OK)
-async def login_customer(
+async def login(
     data: Annotated[LoginDetails, Form()],
     request: Request,
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> CustomerSchema:
+) -> UserSchema:
     """
-    login_customer logs in a customer using the provided login details.
+    login logs in a user using the provided login details.
 
     Args:
-        data (LoginDetails): The login details of the customer.
+        data (LoginDetails): The login details of the user.
         request (Request): The request object.
         session (AsyncSession): The SQLAlchemy AsyncSession.
 
     Returns:
-        CustomerSchema: The logged in customer.
+        UserSchema: The logged in user.
     """
 
     try:
-        customer = await Customer.get(session, email=data.email)
+        user = await User.get(session, email=data.email)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    if not customer:
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    if not await customer.authenticate(data.password):
+    if not await user.authenticate(data.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password"
         )
 
-    if not customer.is_active or customer.is_deleted:
+    if not user.is_active or user.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Customer is inactive or deleted",
+            detail="User is inactive or deleted",
         )
 
-    # Add customer_id to the session
-    request.session.update({"customer_id": str(customer.id)})
+    # Add user_id to the session
+    request.session.update({"user_id": str(user.id)})
 
-    return customer
+    return user
 
 
 @router.post(
@@ -78,9 +78,9 @@ async def login_customer(
         }
     },
 )
-async def logout_customer(request: Request):
+async def logout(request: Request):
     """
-    logout_customer logs out a customer by removing the customer_id from the session.
+    logout logs out a user by removing the user_id from the session.
 
     Args:
         request (Request): The request object.
@@ -88,28 +88,28 @@ async def logout_customer(request: Request):
     Returns:
         dict: The response message.
     """
-    request.session.pop("customer_id", None)
+    request.session.pop("user_id", None)
     return {"message": "Successfully logged out"}
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register_customer(
-    data: Annotated[CustomerCreate, Form()],
+async def register(
+    data: Annotated[UserCreate, Form()],
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> CustomerSchema:
+) -> UserSchema:
     """
-    register_customer registers a new customer.
+    register registers a new user.
 
     Args:
-        data (CustomerCreate): The data to create the customer with.
+        data (UserCreate): The data to create the user with.
         session (AsyncSession): The SQLAlchemy AsyncSession.
 
     Returns:
-        CustomerSchema: The created customer.
+        UserSchema: The created user.
     """
     try:
-        customer = await Customer.create(session, **data.model_dump())
-        return customer
+        user = await User.create(session, **data.model_dump())
+        return user
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
@@ -119,29 +119,29 @@ async def register_customer(
 @router.post("/change_password", status_code=status.HTTP_200_OK)
 async def change_password(
     data: Annotated[PasswordChangeData, Form()],
-    customer: Annotated[Customer | None, Depends(get_logged_in_active_customer)],
+    user: Annotated[User | None, Depends(get_logged_in_active_user)],
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> CustomerSchema:
+) -> UserSchema:
     """
-    change_password changes the password of the logged in customer.
+    change_password changes the password of the logged in user.
 
     Args:
         data (PasswordChangeData): The data to change the password with.
-        customer (Customer): The logged in customer.
+        user (User): The logged in user.
         session (AsyncSession): The SQLAlchemy AsyncSession.
 
     Returns:
-        CustomerSchema: The updated customer.
+        UserSchema: The updated user.
     """
-    if not customer:
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Customer not logged in"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not logged in"
         )
 
-    if not await customer.authenticate(data.old_password):
+    if not await user.authenticate(data.old_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password"
         )
 
-    customer = await customer.change_password(session, data.new_password)
-    return customer
+    user = await user.change_password(session, data.new_password)
+    return user
