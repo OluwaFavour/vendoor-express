@@ -13,9 +13,10 @@ async def test_register_user_success(client: AsyncClient):
             "last_name": "Bar",
             "password": "pAssword123$",
             "phone": "+2348123456789",
-            "role": "user",
+            "role": "customer",
         },
     )
+    print(response.json())
     assert response.status_code == 201
 
 
@@ -29,7 +30,7 @@ async def test_register_user_invalid_password(client: AsyncClient):
             "last_name": "Bar",
             "password": "password",
             "phone": "+2348123456789",
-            "role": "user",
+            "role": "customer",
         },
     )
     assert response.status_code == 422
@@ -45,7 +46,7 @@ async def test_register_user_no_duplicate_email(client: AsyncClient):
             "last_name": "Bar",
             "password": "pAssword123$",
             "phone": "+2348123456789",
-            "role": "user",
+            "role": "customer",
         },
     )
     assert response.status_code == 201
@@ -58,7 +59,7 @@ async def test_register_user_no_duplicate_email(client: AsyncClient):
             "last_name": "Bar",
             "password": "pAssword123$",
             "phone": "+2348123456789",
-            "role": "user",
+            "role": "customer",
         },
     )
     assert duplicate_response.status_code == 422
@@ -74,7 +75,7 @@ async def test_register_user_no_duplicate_phone(client: AsyncClient):
             "last_name": "Bar",
             "password": "pAssword123$",
             "phone": "+2348123456789",
-            "role": "user",
+            "role": "customer",
         },
     )
     assert response.status_code == 201
@@ -87,7 +88,7 @@ async def test_register_user_no_duplicate_phone(client: AsyncClient):
             "last_name": "Bar",
             "password": "pAssword123$",
             "phone": "+2348123456789",
-            "role": "user",
+            "role": "customer",
         },
     )
 
@@ -106,7 +107,7 @@ async def test_login_user_with_email(client: AsyncClient):
             "last_name": "Bar",
             "password": "pAssword123$",
             "phone": "+2348123456789",
-            "role": "user",
+            "role": "customer",
         },
     )
     assert register_response.status_code == 201
@@ -135,7 +136,7 @@ async def test_login_user_invalid_password(client: AsyncClient):
             "last_name": "Bar",
             "password": "pAssword123$",
             "phone": "+2348123456789",
-            "role": "user",
+            "role": "customer",
         },
     )
     assert register_response.status_code == 201
@@ -163,7 +164,7 @@ async def test_logout_user(client: AsyncClient):
             "last_name": "Bar",
             "password": "pAssword123$",
             "phone": "+2348123456789",
-            "role": "user",
+            "role": "customer",
         },
     )
     assert user.status_code == 201
