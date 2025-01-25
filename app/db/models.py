@@ -209,11 +209,6 @@ class User(Base):
         # Check for unique constraints (email, phone) in a single query
         await cls.check_unique_constraints(session, **kwargs)
 
-        # Generate a unique username
-        kwargs["username"] = await cls.generate_unique_username(
-            session, kwargs["first_name"], kwargs["last_name"]
-        )
-
         # Hash password early
         kwargs["hashed_password"] = hash_password(kwargs.pop("password"))
 
