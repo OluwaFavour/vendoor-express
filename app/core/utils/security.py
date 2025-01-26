@@ -1,3 +1,4 @@
+import secrets
 from app.core.config import password_context
 
 
@@ -26,3 +27,16 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         bool: True if the plain password matches the hashed password, False otherwise.
     """
     return password_context.verify(plain_password, hashed_password)
+
+
+def generate_otp() -> str:
+    """
+    Generate a 6-character OTP (One-Time Password) consisting of
+    uppercase letters and digits.
+
+    Returns:
+        str: A randomly generated 6-character OTP.
+    """
+    return "".join(
+        secrets.choice("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ") for _ in range(6)
+    )
