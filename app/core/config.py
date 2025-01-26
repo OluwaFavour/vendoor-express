@@ -1,7 +1,7 @@
 from passlib.context import CryptContext
 
 from functools import lru_cache
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.logger import setup_logger
 
@@ -14,20 +14,19 @@ class Settings(BaseSettings):
     app_version: str = "0.0.1"
     database_url: str = "sqlite:///./test.db"
     debug: bool = True
-    # from_email: str
-    # from_name: str
+    from_email: str
+    from_name: str = "Vendoor Express"
     # otp_expiry_minutes: int = 5
     session_expire_days: int = 7
     session_same_site: str = "lax"
     session_secret_key: str
     session_secure: bool = False
-    # smtp_host: str
-    # smtp_login: str
-    # smtp_password: str
-    # smtp_port: int
+    smtp_host: str
+    smtp_login: str
+    smtp_password: str
+    smtp_port: int
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 @lru_cache
