@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from app.core.config import db_logger
 from app.core.enums import Role
-from app.core.utils import hash_password, verify_password
+from app.core.utils.security import hash_password, verify_password
 from app.db.config import Base
 
 from sqlalchemy import func, and_, or_
