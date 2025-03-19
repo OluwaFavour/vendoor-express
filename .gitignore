@@ -120,6 +120,10 @@ ipython_config.py
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
 
+# Alembic stuff
+migrations/versions/*.py
+!migrations/versions/dummy.py
+
 # Celery stuff
 celerybeat-schedule
 celerybeat.pid
