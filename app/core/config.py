@@ -10,13 +10,15 @@ class Settings(BaseSettings):
     allow_credentials: bool = True
     allowed_methods: list[str] = ["*"]
     allowed_origins: list[str] = ["*"]
-    app_name: str = "Find-a-Home_FUTA API"
+    app_name: str = "Vendoor Express API"
     app_version: str = "0.0.1"
     database_url: str = "sqlite:///./test.db"
     debug: bool = True
     from_email: str
     from_name: str = "Vendoor Express"
-    # otp_expiry_minutes: int = 5
+    jwt_algorithm: str = "HS256"
+    jwt_expiry_minutes: int = 60
+    otp_expiry_minutes: int = 5
     session_expire_days: int = 7
     session_same_site: str = "lax"
     session_secret_key: str
@@ -25,6 +27,10 @@ class Settings(BaseSettings):
     smtp_login: str
     smtp_password: str
     smtp_port: int
+
+    # Login Settings
+    short_login_expiry_minutes: int = 60
+    long_login_expiry_days: int = 7
 
     model_config = SettingsConfigDict(env_file=".env")
 
@@ -36,5 +42,8 @@ def get_settings():
 
 # Database logger instance
 db_logger = setup_logger("database_logger", "logs/database_actions.log")
+
+# Request logger instance
+request_logger = setup_logger("request_logger", "logs/request_actions.log")
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

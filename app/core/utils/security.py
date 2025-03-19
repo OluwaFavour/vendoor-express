@@ -1,5 +1,12 @@
+from datetime import datetime, timedelta
+import jwt
 import secrets
-from app.core.config import password_context
+from typing import Any
+
+from app.core.config import password_context, get_settings
+
+
+SETTINGS = get_settings()
 
 
 def hash_password(password: str) -> str:
@@ -40,3 +47,41 @@ def generate_otp() -> str:
     return "".join(
         secrets.choice("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ") for _ in range(6)
     )
+
+
+def encode(data: dict[str, Any], expiry_time: timedelta) -> str:
+    """
+    Encode data using JWT.
+
+    Args:
+        data (dict[str, Any]): The data to encode.
+        expiry_time (timedelta): The expiry time for the token.
+
+    Returns:
+        str: The encoded JWT token.
+    """
+    expiration = datetime.now() + expiry_time
+    data.update({"exp": expiration})
+    return jwt.encode(
+        data, SETTINGS.session_secret_key, algorithm=SETTINGS.jwt_algorithm
+    )
+
+
+def decode(token: str) -> dict[str, Any]:
+    """
+    Decode a JWT token.
+
+    Args:
+        token (str): The JWT token to decode.
+
+    Returns:
+        dict[str, Any]: The decoded data.
+    """
+    try:
+        return jwt.decode(
+            token, SETTINGS.session_secret_key, algorithms=[SETTINGS.jwt_algorithm]
+        )
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Token has expired")
+    except jwt.InvalidTokenError:
+        raise ValueError("Invalid token")

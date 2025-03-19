@@ -11,6 +11,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic_extra_types.phone_numbers import PhoneNumber
 
 from app.core.enums import Role
 from app.core.validators import validate_phone, validate_password
@@ -21,26 +22,13 @@ class UserBase(BaseModel):
     first_name: str
     last_name: str
     phone: Annotated[
-        str,
+        PhoneNumber,
         Field(
             title="Phone number",
             description="Phone number in international format, e.g. +2348123456789",
         ),
     ]
     role: Annotated[Role, Field(..., title="Role", description="Role of the user")]
-
-    @field_validator("phone")
-    def phone_validator(cls, value: str) -> str:
-        """
-        phone_validator validates the phone number using the phonenumbers library.
-
-        Args:
-            value (str): The phone number to validate
-
-        Returns:
-            str: The validated phone number
-        """
-        return validate_phone(value)
 
 
 class UserCreate(UserBase):
@@ -99,9 +87,19 @@ class User(UserBase):
         return data
 
 
+class Output(BaseModel):
+    message: str
+    user: User
+
+
+class Message(BaseModel):
+    message: str
+
+
 class LoginDetails(BaseModel):
     email: EmailStr
     password: str
+    remember_me: bool = False
     model_config: ConfigDict = ConfigDict(extra="forbid")
 
 
@@ -128,3 +126,9 @@ class PasswordChangeData(BaseModel):
         if self.old_password == self.new_password:
             raise ValueError("New password must be different from old password")
         return self
+
+
+class VerificationData(BaseModel):
+    email: EmailStr
+    code: str
+    model_config: ConfigDict = ConfigDict(extra="forbid")

@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import get_settings
 from app.db.init_db import init_db, dispose_db
-from app.routers import users
+from app.routers import auth
 
 
 @asynccontextmanager
@@ -63,7 +63,7 @@ app.add_middleware(
 
 
 # ADD ROUTERS
-app.include_router(users.router)
+app.include_router(auth.router)
 
 
 @app.get("/", include_in_schema=False)
