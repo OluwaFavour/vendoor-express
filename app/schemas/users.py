@@ -130,5 +130,41 @@ class PasswordChangeData(BaseModel):
 
 class VerificationData(BaseModel):
     email: EmailStr
-    code: str
+    code: Annotated[
+        str,
+        Field(
+            ...,
+            title="Verification code",
+            description="The verification code sent to the user's email",
+            pattern=r"^[0-9A-Z]{6}$",
+        ),
+    ]
     model_config: ConfigDict = ConfigDict(extra="forbid")
+
+
+class PasswordResetData(BaseModel):
+    email: EmailStr
+    code: Annotated[
+        str,
+        Field(
+            ...,
+            title="Reset code",
+            description="The reset code sent to the user's email",
+            pattern=r"^[0-9A-Z]{6}$",
+        ),
+    ]
+    new_password: str
+    model_config: ConfigDict = ConfigDict(extra="forbid")
+
+    @field_validator("new_password")
+    def new_password_validator(cls, value: str):
+        """
+        new_password_validator validates the new password.
+
+        Args:
+            value (str): The new password to validate
+
+        Returns:
+            str: The validated new password
+        """
+        return validate_password(value)

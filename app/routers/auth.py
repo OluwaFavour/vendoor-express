@@ -27,6 +27,7 @@ from app.schemas.users import (
     LoginDetails,
     Message,
     Output,
+    PasswordResetData,
     User as UserSchema,
     UserCreate,
     PasswordChangeData,
@@ -59,12 +60,38 @@ async def send_verification_email(otp: OTP, user: User) -> None:
                 subject="Email Verification",
                 recipient={"email": user.email, "display_name": user.full_name},
                 plain_text=message,
-                sender=settings.smtp_login,
             )
             request_logger.info(f"Verification email sent to {user.email}")
         except Exception as e:
             request_logger.error(
                 f"Error sending verification email to {user.email}: {e}"
+            )
+
+
+async def send_password_reset_email(otp: OTP, user: User) -> None:
+    """
+    Sends a password reset email to the user.
+
+    Args:
+        otp (OTP): The OTP object.
+        user (User): The user object.
+    """
+    settings = get_settings()
+
+    # Send email
+    async with get_async_smtp() as smtp:
+        try:
+            message = f"Your password reset code is: {otp.code}, valid for {settings.otp_expiry_minutes} minutes."
+            await send_email(
+                smtp=smtp,
+                subject="Password Reset",
+                recipient={"email": user.email, "display_name": user.full_name},
+                plain_text=message,
+            )
+            request_logger.info(f"Password reset email sent to {user.email}")
+        except Exception as e:
+            request_logger.error(
+                f"Error sending password reset email to {user.email}: {e}"
             )
 
 
@@ -264,9 +291,11 @@ async def resend_otp(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="User is already verified",
                 )
-            otp = await OTP.get(session, user_id=user.id)
+            otp = await OTP.get(session, user_id=user.id, is_password_reset=False)
             if otp and not otp.is_valid:
-                session.delete(otp)
+                await session.delete(otp)
+                await session.flush()
+                otp = None
 
             # Create a new OTP if none exists, or regenerate the existing one
             if not otp:
@@ -335,6 +364,7 @@ async def verify_register_otp(
                 session,
                 commit_self=False,
             )  # Verifies the User and updates the otp `is_used` field to True
+            await session.refresh(user)
             request_logger.info(f"User {user.email} verified with OTP {otp.code}")
         return Output(message="User verified", user=user)
     except HTTPException:
@@ -353,19 +383,22 @@ async def verify_register_otp(
 @router.post("/change_password", status_code=status.HTTP_200_OK)
 async def change_password(
     data: Annotated[PasswordChangeData, Form()],
+    request: Request,
     user: Annotated[User | None, Depends(get_logged_in_active_user)],
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> UserSchema:
+) -> Output:
     """
-    change_password changes the password of the logged in user.
+    change_password changes the password of the logged in user,
+    and logs the user out of all devices.
 
     Args:
         data (PasswordChangeData): The data to change the password with.
+        request (Request): The request
         user (User): The logged in user.
         session (AsyncSession): The SQLAlchemy AsyncSession.
 
     Returns:
-        UserSchema: The updated user.
+        Output: The response message and user object.
     """
     if not user:
         raise HTTPException(
@@ -377,5 +410,160 @@ async def change_password(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password"
         )
 
-    user = await user.change_password(session, data.new_password)
+    await user.change_password(session, data.new_password)
+
+    # TODO: Log out user from all devices if selected
+    request.session.pop("session_token", None)
+
+    return Output(message="Password changed", user=user)
+
+
+@router.post("/forgot_password", status_code=status.HTTP_200_OK)
+async def forgot_password(
+    email: Annotated[EmailStr, Form()],
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    background_tasks: BackgroundTasks,
+) -> Message:
+    """
+    forgot_password sends a password reset email to the user.
+
+    Args:
+        email (EmailStr): The email of the user.
+        request (Request): The request object.
+        session (AsyncSession): The SQLAlchemy AsyncSession.
+        background_tasks (BackgroundTasks): The FastAPI background tasks.
+
+    Returns:
+        Message: The response message.
+    """
+    if request.session.get("session_token"):
+        request_logger.warning(f"Logged-in user attempted forgot password for {email}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Log out before requesting a password reset",
+        )
+    try:
+        async with session.begin():
+            user = await User.get(session, email=email)
+            if not user:
+                request_logger.warning(
+                    f"Forgot password failed for {email}: User not found"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+                )
+
+            # Check if user already has a password reset OTP
+            otp = await OTP.get(session, user_id=user.id, is_password_reset=True)
+            if otp and not otp.is_valid:
+                await session.delete(otp)
+                await session.flush()
+                otp = None
+
+            # Create a new password reset OTP if none exists, or regenerate the existing one
+            if not otp:
+                otp = await OTP.create(
+                    session, user_id=user.id, commit_self=False, is_password_reset=True
+                )
+            else:
+                try:
+                    await otp.regenerate(session, commit_self=False)
+                except Exception as e:
+                    request_logger.error(
+                        f"Failed to regenerate password reset OTP for {email}: {str(e)}"
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Internal server error",
+                    )
+
+        # Send password reset email using background task
+        background_tasks.add_task(send_password_reset_email, otp, user)
+        return Message(message="Password reset email sent, check your email")
+    except HTTPException:
+        raise
+    except Exception as e:
+        request_logger.error(
+            f"Failed to send password reset email for {email}: {str(e)}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
+        )
+
+
+@router.post("/reset_password", status_code=status.HTTP_200_OK)
+async def reset_password(
+    data: Annotated[PasswordResetData, Form()],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> Output:
+    """
+    reset_password resets the password of the user using the provided OTP.
+
+    Args:
+        data (PasswordResetData): The password reset data.
+        session (AsyncSession): The SQLAlchemy AsyncSession.
+
+    Returns:
+        Output: The response message and user object.
+    """
+    try:
+        # Use the OTP
+        async with session.begin():
+            user = await User.get(session, email=data.email)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+                )
+            otp = await OTP.get(
+                session, user_id=user.id, code=data.code, is_password_reset=True
+            )
+            if not otp:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Invalid OTP"
+                )
+            if not otp.is_valid:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="OTP expired, or already used",
+                )
+            await otp.use(
+                session,
+                commit_self=False,
+            )
+            # Change password
+            await user.change_password(session, data.new_password, commit_self=False)
+            await session.refresh(user)
+            request_logger.info(
+                f"Password reset successful for {user.email} with OTP {otp.code}"
+            )
+
+        return Output(message="User verified and password changed", user=user)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        request_logger.warning(f"Verification failed for {data.email}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        request_logger.error(f"Verification failed for {data.email}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}",
+        )
+
+
+@router.get("/me", response_model=UserSchema)
+async def get_me(
+    user: Annotated[User, Depends(get_logged_in_active_user)],
+) -> UserSchema:
+    """
+    get_me retrieves the logged in user.
+
+    Args:
+        user (User): The logged in user.
+
+    Returns:
+        UserSchema: The logged in user.
+    """
     return user

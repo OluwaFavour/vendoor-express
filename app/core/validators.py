@@ -28,7 +28,7 @@ def validate_phone(phone: str) -> str:
         return phone
 
 
-def validate_password(password: str):
+def validate_password(password: str) -> str:
     """
     validate_password validates the password.
 
@@ -41,6 +41,9 @@ def validate_password(password: str):
     Raises:
         ValueError: If the password is invalid
     """
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+
     # Check for at least one digit
     if not any(char.isdigit() for char in password):
         raise ValueError("Password must contain at least one digit")
