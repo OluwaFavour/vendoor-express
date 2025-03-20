@@ -101,7 +101,7 @@ async def get_logged_in_active_user(
         user (User): The user object from get_logged_in_user.
 
     Returns:
-        User: The logged in active user, or None if not found.
+        User: The logged in active user.
 
     Raises:
         HTTPException: If user is not active (403) or not verified (403).

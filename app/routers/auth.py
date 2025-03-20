@@ -25,7 +25,7 @@ from app.db.models import User, OTP
 from app.core.dependencies import get_async_smtp, get_logged_in_active_user
 from app.schemas.users import (
     LoginDetails,
-    Message,
+    MessageResponse,
     Output,
     PasswordResetData,
     User as UserSchema,
@@ -174,7 +174,7 @@ async def login(
 )
 async def logout(
     request: Request, user: Annotated[User, Depends(get_logged_in_active_user)]
-) -> Message:
+) -> MessageResponse:
     """
     logout logs out a user by removing the user_id from the session.
 
@@ -190,7 +190,7 @@ async def logout(
             f"Logout attempted with no session token for user {user.id}"
         )
         # Already logged out, so proceed with success
-        return Message(message="Successfully logged out")
+        return MessageResponse(message="Successfully logged out")
 
     try:
         payload = decode(session_token)
@@ -216,7 +216,7 @@ async def logout(
 
     request.session.pop("session_token", None)
     request_logger.info(f"User {user.id} successfully logged out")
-    return Message(message="Successfully logged out")
+    return MessageResponse(message="Successfully logged out")
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -424,7 +424,7 @@ async def forgot_password(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_async_session)],
     background_tasks: BackgroundTasks,
-) -> Message:
+) -> MessageResponse:
     """
     forgot_password sends a password reset email to the user.
 
@@ -435,7 +435,7 @@ async def forgot_password(
         background_tasks (BackgroundTasks): The FastAPI background tasks.
 
     Returns:
-        Message: The response message.
+        MessageResponse: The response message.
     """
     if request.session.get("session_token"):
         request_logger.warning(f"Logged-in user attempted forgot password for {email}")
@@ -480,7 +480,7 @@ async def forgot_password(
 
         # Send password reset email using background task
         background_tasks.add_task(send_password_reset_email, otp, user)
-        return Message(message="Password reset email sent, check your email")
+        return MessageResponse(message="Password reset email sent, check your email")
     except HTTPException:
         raise
     except Exception as e:

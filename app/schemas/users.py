@@ -14,7 +14,7 @@ from pydantic import (
 from pydantic_extra_types.phone_numbers import PhoneNumber
 
 from app.core.enums import Role
-from app.core.validators import validate_phone, validate_password
+from app.core.validators import validate_password
 
 
 class UserBase(BaseModel):
@@ -92,7 +92,7 @@ class Output(BaseModel):
     user: User
 
 
-class Message(BaseModel):
+class MessageResponse(BaseModel):
     message: str
 
 
