@@ -18,7 +18,7 @@ from app.core.validators import validate_password
 
 
 class UserBase(BaseModel):
-    email: Annotated[EmailStr, Field(..., title="Email address")]
+    email: Annotated[EmailStr, Field(title="Email address")]
     first_name: str
     last_name: str
     phone: Annotated[
@@ -28,7 +28,7 @@ class UserBase(BaseModel):
             description="Phone number in international format, e.g. +2348123456789",
         ),
     ]
-    role: Annotated[Role, Field(..., title="Role", description="Role of the user")]
+    role: Annotated[Role, Field(title="Role", description="Role of the user")]
 
 
 class UserCreate(UserBase):
