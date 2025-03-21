@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Union
+from typing import Optional, Union
 from uuid import UUID, uuid4
 
 from app.core.config import db_logger, get_settings
@@ -8,7 +8,16 @@ from app.core.enums import DeliveryStatus, Role
 from app.core.utils.security import hash_password, verify_password, generate_otp
 from app.db.config import Base
 
-from sqlalchemy import func, and_, or_, ForeignKey, Text, Numeric
+from sqlalchemy import (
+    func,
+    and_,
+    or_,
+    ForeignKey,
+    Text,
+    Numeric,
+    SmallInteger,
+    CheckConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -43,14 +52,14 @@ class User(Base):
         return f"{self.first_name} {self.last_name}".title()
 
     @classmethod
-    async def get(cls, session: AsyncSession, **kwargs) -> Union["User", None]:
+    async def get(cls, session: AsyncSession, **kwargs) -> Optional["User"]:
         """
         Retrieve a User record from the database based on provided filter arguments.
         Args:
             session (AsyncSession): The SQLAlchemy asynchronous session to use for the query.
             **kwargs: Arbitrary keyword arguments representing the filter conditions.
         Returns:
-            Union["User", None]: The User object if found, otherwise None.
+            Optional["User"]: The User object if found, otherwise None.
         Raises:
             ValueError: If no filter arguments are provided or if invalid filter arguments are given.
         Example:
@@ -524,7 +533,7 @@ class OTP(Base):
         return otp
 
     @classmethod
-    async def get(cls, session: AsyncSession, **kwargs) -> Union["OTP", None]:
+    async def get(cls, session: AsyncSession, **kwargs) -> Optional["OTP"]:
         """
         Retrieve an OTP record from the database based on provided filter arguments.
 
@@ -533,7 +542,7 @@ class OTP(Base):
             **kwargs: Arbitrary keyword arguments representing the filter conditions.
 
         Returns:
-            Union["OTP", None]: The OTP object if found, otherwise None.
+            Optional["OTP"]: The OTP object if found, otherwise None.
 
         Raises:
             ValueError: If no filter arguments are provided or if invalid filter arguments are given.
@@ -676,7 +685,9 @@ class Product(Base):
     )
     name: Mapped[str] = mapped_column(nullable=False)
     category: Mapped[str] = mapped_column(nullable=False, index=True)
-    price: Mapped[Decimal] = mapped_column(Numeric(scale=2), nullable=False)
+    price: Mapped[Decimal] = mapped_column(
+        Numeric(scale=2), CheckConstraint("price >= 0"), nullable=False
+    )
     description: Mapped[str] = mapped_column(Text, nullable=False)
     specification: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[str | None] = mapped_column(nullable=True)  # Folder Path
@@ -787,14 +798,14 @@ class Product(Base):
         return product
 
     @classmethod
-    async def get(cls, session: AsyncSession, **kwargs) -> Union["Product", None]:
+    async def get(cls, session: AsyncSession, **kwargs) -> Optional["Product"]:
         """
         Retrieve a Product record from the database based on provided filter arguments.
         Args:
             session (AsyncSession): The SQLAlchemy asynchronous session to use for the query.
             **kwargs: Arbitrary keyword arguments representing the filter conditions.
         Returns:
-            Union["Product", None]: The Product object if found, otherwise None.
+            Optional["Product"]: The Product object if found, otherwise None.
         Raises:
             ValueError: If no filter arguments are provided or if invalid filter arguments are given.
         Example:
@@ -896,7 +907,7 @@ class Order(Base):
 
     async def get_total_price(self, session: AsyncSession) -> Decimal:
         """
-        Get the total price of the order.
+        Calculate the total price by summing price * unit of all artifacts.
 
         Args:
             session (AsyncSession): The SQLAlchemy asynchronous session to use for the operation.
@@ -904,13 +915,11 @@ class Order(Base):
         Returns:
             Decimal: The total price of the order.
         """
-        total_price_query = (
-            select(func.sum(OrderArtifact.price * OrderArtifact.unit))
-            .where(OrderArtifact.order_id == self.id)
-            .scalar_subquery()
-        )
+        total_price_query = select(
+            func.sum(OrderArtifact.price * OrderArtifact.unit)
+        ).where(OrderArtifact.order_id == self.id)
         result = await session.execute(total_price_query)
-        return
+        return result.scalar() or Decimal(0)
 
 
 class OrderArtifact(Base):
@@ -919,8 +928,14 @@ class OrderArtifact(Base):
     id: Mapped[UUID] = mapped_column(default=uuid4, primary_key=True)
     order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), nullable=False)
     product_id: Mapped[UUID] = mapped_column(ForeignKey("products.id"), nullable=False)
-    unit: Mapped[int] = mapped_column(nullable=False)
-    price: Mapped[Decimal] = mapped_column(Numeric(scale=2), nullable=False)
+    unit: Mapped[int] = mapped_column(
+        SmallInteger,
+        CheckConstraint("unit > 0"),
+        nullable=False,
+    )
+    price: Mapped[Decimal] = mapped_column(
+        Numeric(scale=2), CheckConstraint("price > 0"), nullable=False
+    )
     delivery_status: Mapped[DeliveryStatus] = mapped_column(
         nullable=False, default=DeliveryStatus.PENDING
     )
@@ -935,7 +950,7 @@ class OrderArtifact(Base):
     def total_price(self) -> Decimal:
         return self.price * self.unit
 
-    async def get_product(self, session: AsyncSession) -> str:
+    async def get_product(self, session: AsyncSession) -> Optional["Product"]:
         """
         Get the product associated with the order artifact.
 
@@ -943,7 +958,7 @@ class OrderArtifact(Base):
             session (AsyncSession): The SQLAlchemy asynchronous session to use for the operation.
 
         Returns:
-            str: The product.
+            Product: The product.
         """
         product = await Product.get(session, id=self.product_id)
         return product
