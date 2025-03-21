@@ -8,7 +8,6 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.core.config import get_settings
 from app.db.init_db import init_db, dispose_db
 from app.routers import auth
-from app.routers.vendors import products as vendors_products
 
 
 @asynccontextmanager
@@ -56,16 +55,15 @@ app.add_middleware(
 ## ADD CORS MIDDLEWARE
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_settings().cors_allowed_origins,
-    allow_credentials=get_settings().cors_allow_credentials,
-    allow_methods=get_settings().cors_allowed_methods,
+    allow_origins=get_settings().allowed_origins,
+    allow_credentials=get_settings().allow_credentials,
+    allow_methods=get_settings().allowed_methods,
     allow_headers=["*"],
 )
 
 
 # ADD ROUTERS
 app.include_router(auth.router)
-app.include_router(vendors_products.router)
 
 
 @app.get("/", include_in_schema=False)

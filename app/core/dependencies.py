@@ -8,7 +8,6 @@ import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings, request_logger
-from app.core.enums import Role
 from app.core.utils.security import decode
 from app.db.config import get_async_session
 from app.db.models import User
@@ -116,75 +115,6 @@ async def get_logged_in_active_user(
         request_logger.warning(f"User {user.id} is not verified")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="User is not verified"
-        )
-    return user
-
-
-async def get_logged_in_vendor(
-    user: Annotated[User, Depends(get_logged_in_active_user)],
-) -> User:
-    """
-    get_logged_in_vendor retrieves the logged in vendor from the session.
-
-    Args:
-        user (User): The user object from get_logged_in_active_user.
-
-    Returns:
-        User: The logged in vendor.
-
-    Raises:
-        HTTPException: If user is not a vendor (403).
-    """
-    if user.role != Role.VENDOR:
-        request_logger.warning(f"User {user.id} is not a vendor")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User is not a vendor"
-        )
-    return user
-
-
-async def get_logged_in_admin(
-    user: Annotated[User, Depends(get_logged_in_active_user)],
-) -> User:
-    """
-    get_logged_in_admin retrieves the logged in admin from the session.
-
-    Args:
-        user (User): The user object from get_logged_in_active_user.
-
-    Returns:
-        User: The logged in admin.
-
-    Raises:
-        HTTPException: If user is not an admin (403).
-    """
-    if user.role != Role.ADMIN:
-        request_logger.warning(f"User {user.id} is not an admin")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User is not an admin"
-        )
-    return user
-
-
-async def get_logged_in_customer(
-    user: Annotated[User, Depends(get_logged_in_active_user)],
-) -> User:
-    """
-    get_logged_in_customer retrieves the logged in customer from the session.
-
-    Args:
-        user (User): The user object from get_logged_in_active_user.
-
-    Returns:
-        User: The logged in customer.
-
-    Raises:
-        HTTPException: If user is not a customer (403).
-    """
-    if user.role != Role.CUSTOMER:
-        request_logger.warning(f"User {user.id} is not a customer")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User is not a customer"
         )
     return user
 
