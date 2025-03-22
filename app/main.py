@@ -65,7 +65,7 @@ app.add_middleware(
 
 # ADD ROUTERS
 app.include_router(auth.router)
-app.include_router(vendors_products.router)
+# app.include_router(vendors_products.router)
 
 
 @app.get("/", include_in_schema=False)
